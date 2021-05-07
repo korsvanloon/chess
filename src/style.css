@@ -1,0 +1,76 @@
+.board {
+  width: 800px;
+  height: 800px;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 64px;
+  background-image: linear-gradient(45deg, black 25%, transparent 25%),
+    linear-gradient(-45deg, black 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, black 75%),
+    linear-gradient(-45deg, transparent 75%, black 75%);
+  background-size: 25% 25%;
+  background-position: 0 0, 0 100px, 100px -100px, -100px 0px;
+}
+/* A square */
+.board > div {
+  width: 12.5%;
+  height: 12.5%;
+  position: relative;
+}
+.board > .selectable,
+.board > .move-target,
+.board > .enemy-target {
+  cursor: pointer;
+}
+.board > .selectable > .tile {
+  border: 6px solid hsla(0, 0%, 100%, 0.3);
+}
+.board > .selectable:hover > .tile {
+  border: 6px solid hsla(0, 0%, 0%, 0.3);
+}
+.board > .selected > .tile {
+  border: 6px solid black;
+}
+.board > .move-target > .tile::before {
+  content: '';
+  position: absolute;
+  display: block;
+  width: 50%;
+  height: 50%;
+  margin: 25%;
+  border-radius: 50%;
+  opacity: 0.5;
+  background-color: hsla(100, 50%, 80%, 1);
+}
+.board > .enemy-target > .tile::before {
+  content: '';
+  position: absolute;
+  display: block;
+  width: 60%;
+  height: 60%;
+  margin: 20%;
+  border-radius: 50%;
+  opacity: 0.8;
+  background-color: hsla(0, 50%, 80%, 1);
+}
+.board > .enemy-target:hover > .tile::before,
+.board > .move-target:hover > .tile::before {
+  opacity: 1;
+}
+.tile {
+  background-color: hsla(60, 20%, 50%, 1);
+  opacity: 0.8;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+.piece {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1;
+}
