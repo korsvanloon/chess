@@ -1,3 +1,46 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+}
+.App {
+  display: flex;
+}
+
+.control {
+  display: inline-block;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 6px;
+  width: 20px;
+  height: 20px;
+  text-align: center;
+  position: absolute;
+  left: 6px;
+  opacity: 0.3;
+}
+.control.black {
+  background-color: hsla(0, 0%, 0%, 0.3);
+  color: black;
+  top: 30%;
+}
+.control.white {
+  background-color: hsla(0, 0%, 100%, 0.3);
+  color: white;
+  bottom: 30%;
+}
+.piece.white + div .control.white,
+.piece.black + div .control.black {
+  background-color: hsla(120, 100%, 50%, 0.3);
+}
+.piece.black + div .control.white,
+.piece.white + div .control.black {
+  background-color: hsla(0, 100%, 50%, 0.3);
+  opacity: 1;
+}
+.hover-black .control.black,
+.hover-white .control.white {
+  /* opacity: 1; */
+}
 .board {
   width: 800px;
   height: 800px;
@@ -11,25 +54,59 @@
   background-size: 25% 25%;
   background-position: 0 0, 0 100px, 100px -100px, -100px 0px;
 }
+.game {
+  position: relative;
+  padding: 20px;
+}
+.game::before {
+  content: '8 7 6 5 4 3 2 1';
+  position: absolute;
+  display: block;
+  width: 20px;
+  height: 100%;
+  left: 0;
+  font-size: 20px;
+  line-height: 100px;
+}
+.game::after {
+  content: 'abcdefgh';
+  position: absolute;
+  height: 20px;
+  width: 100%;
+  font-size: 20px;
+  letter-spacing: 90px;
+  padding: 0 50px;
+}
 /* A square */
 .board > div {
   width: 12.5%;
   height: 12.5%;
   position: relative;
 }
+.board > div > .tile {
+  background-color: hsla(60, 20%, 50%, 1);
+  opacity: 0.8;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
 .board > .selectable,
 .board > .move-target,
 .board > .enemy-target {
   cursor: pointer;
 }
-.board > .selectable > .tile {
-  border: 6px solid hsla(0, 0%, 100%, 0.3);
+.board > .selectable > .piece {
+  transition: box-shadow 0.1s ease;
+  box-shadow: inset 0 0 0 3px hsla(0, 0%, 0%, 0.5);
+  /* border: 20px solid hsla(0, 0%, 100%, 0.3); */
 }
-.board > .selectable:hover > .tile {
-  border: 6px solid hsla(0, 0%, 0%, 0.3);
+.board > .selectable:hover > .piece {
+  box-shadow: inset 0 0 6px 6px hsla(0, 0%, 100%, 0.8);
+  /* border: 6px solid hsla(0, 0%, 0%, 0.3); */
 }
-.board > .selected > .tile {
-  border: 6px solid black;
+.board > .selected > .piece {
+  box-shadow: inset 0 0 2px 6px hsla(0, 0%, 100%, 1);
+  /* border: 6px solid black; */
 }
 .board > .move-target > .tile::before {
   content: '';
@@ -57,13 +134,13 @@
 .board > .move-target:hover > .tile::before {
   opacity: 1;
 }
-.tile {
-  background-color: hsla(60, 20%, 50%, 1);
-  opacity: 0.8;
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
+.board > .attacker > .tile {
+  background-color: hsla(0, 20%, 50%, 1);
 }
+.board > .defender > .tile {
+  background-color: hsla(120, 20%, 50%, 1);
+}
+
 .piece {
   position: absolute;
   top: 0;
@@ -72,5 +149,42 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1;
+}
+
+.info {
+  padding: 20px;
+}
+.move {
+  text-align: center;
+  padding: 4px 8px;
+  line-height: 16px;
+}
+.move:nth-child(even) {
+  background-color: black;
+  color: white;
+}
+.actions {
+  margin: 10px 0;
+}
+.actions button {
+  width: 100%;
+  padding: 4px 8px;
+  line-height: 16px;
+  border: none;
+  text-transform: uppercase;
+  box-shadow: 0 1px 4px 1px hsla(0, 0%, 0%, 0.3);
+  transition: box-shadow 0.2s ease, background-color 0.2s ease;
+  background-color: hsla(0, 0%, 50%, 0.3);
+  cursor: pointer;
+  /* outline: 0 solid hsla(0, 0%, 0%, 0.3); */
+}
+.actions button:hover {
+  box-shadow: 0 0 0 0 hsla(0, 0%, 0%, 0.3);
+}
+.actions button:active {
+  background-color: hsla(0, 0%, 0%, 0.3);
+}
+.actions button:focus:not(:active) {
+  /* box-shadow: 0 0.5px 2px 0.5px hsla(0, 0%, 0%, 0.3); */
+  outline: 1px solid hsla(0, 0%, 0%, 0.3);
 }

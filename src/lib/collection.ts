@@ -1,3 +1,4 @@
+export const last = <T>(items: T[]) => items[items.length - 1]
 /**
  * Generates an ascending numerical array of size `length`, starting at `start`.
  *

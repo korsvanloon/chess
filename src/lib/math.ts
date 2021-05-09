@@ -15,5 +15,5 @@ export const findMin = <T>(items: T[], byValue: (i: T) => number) =>
 export const findMax = <T>(items: T[], byValue: (i: T) => number) =>
   items.reduce((a, b) => (byValue(a) > byValue(b) ? a : b))
 
-export const count = <T>(items: T[], value: T) =>
-  items.reduce((p, c) => p + (c === value ? 1 : 0), 0)
+export const count = <T>(items: T[], predicate: (i: T) => boolean) =>
+  items.reduce((p, c) => p + (predicate(c) ? 1 : 0), 0)

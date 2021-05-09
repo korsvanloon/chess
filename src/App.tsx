@@ -1,95 +1,449 @@
 import clsx from 'clsx'
-import React, { useState } from 'react'
+import { parse, stringify } from 'querystring'
+import { useEffect, useState } from 'react'
+import { last } from './lib/collection'
+import { Color, turnColor, enemyColor, tileColor, pieceColor, moveColor } from './lib/color'
 import { count } from './lib/math'
+import { Move, moveFrom, moveTo } from './lib/move'
+import {
+  row,
+  up,
+  down,
+  left,
+  right,
+  hasUp,
+  hasDown,
+  hasLeft,
+  hasRight,
+  hasUpLeft,
+  upLeft,
+  hasUpRight,
+  upRight,
+  hasDownLeft,
+  downLeft,
+  hasDownRight,
+  downRight,
+  column,
+} from './lib/tile'
+import { onlyIf } from './lib/util'
 
-type Move = { from: number; to: number }
 type State = {
   selected: number | undefined
-  moves: Move[]
+  previousMoves: Move[]
 }
 
 function App() {
-  const [{ selected, moves }, setState] = useState<State>({
+  const [{ selected, previousMoves }, setState] = useState<State>({
     selected: undefined,
-    moves: [],
+    previousMoves: [],
   })
+  useEffect(() => {
+    const { moves } = parse(window.location.search)
+    const initialMoves = (moves as string)
+      ?.split('-')
+      .map((s) => s.split('_'))
+      .map(([piece, from, to]) => ({
+        piece,
+        from: Number(from),
+        to: Number(to),
+      }))
+    // console.log(moves, initialMoves)
+    if (initialMoves?.length) setState({ previousMoves: initialMoves, selected: undefined })
+  }, [])
+  useEffect(() => {
+    const moveString = previousMoves.map((m) => `${m.piece}_${m.from}_${m.to}`).join('-')
+    const queryParams = stringify({
+      moves: moveString,
+    })
+    const url = `${window.location.pathname}${moveString ? '?' + queryParams : ''}`
+    window.history.replaceState(undefined, '', url)
+  }, [previousMoves])
 
-  const board = boardAfterMoves(moves)
-  const player = turnColor(moves)
+  const [hoverPlayer, setHoverPlayer] = useState<Color>()
+  const [hoverMoves, setHoverMoves] = useState<Move[]>([])
 
-  const enemyMoves = board.flatMap((p, i) =>
-    !empty(board, i) && player !== pieceColor(p) ? [...getBasicMoves(board, i)] : []
+  const board = boardAfterMoves(previousMoves)
+  const player = turnColor(previousMoves)
+
+  const playerMoves = getPlayerControlMoves(board, player)
+  const enemyMoves = getPlayerControlMoves(board, enemyColor(player))
+
+  const tilesMoves = board.map((piece, tile) =>
+    pieceColor(piece) === player ? getTileMoves(board, tile, previousMoves, enemyMoves) : []
   )
 
-  console.log(enemyMoves)
+  const selectedMoves = selected ? tilesMoves[selected] : []
 
-  const allowedMoves = selected !== undefined ? [...getBasicMoves(board, selected)] : []
+  const checkMate = tilesMoves.flat().length === 0
 
+  // console.log({ playerMoves, enemyMoves })
   return (
     <div className="App">
-      <div className="board">
-        {board.map((p, i) => (
-          <div
-            key={i}
-            className={clsx(
-              tileColor(i),
-              selected === i
-                ? 'selected'
-                : selected && allowedMoves.includes(i)
-                ? enemy(board, selected, i)
-                  ? 'enemy-target'
-                  : 'move-target'
-                : isSelectable(i, board, moves) && 'selectable'
-            )}
-            onClick={() =>
-              isSelectable(i, board, moves)
-                ? setState({ moves, selected: i })
-                : allowedMoves.includes(i)
-                ? setState({
-                    selected: undefined,
-                    moves: [...moves, { from: selected!, to: i }],
-                  })
-                : undefined
-            }
-          >
-            <div className="tile">
-              {(player === pieceColor(p) && count(enemyMoves, i)) || undefined}
+      <div className={clsx('game', hoverPlayer && `hover-${hoverPlayer}`)}>
+        <div className="board">
+          {board.map((piece, tile) => (
+            <div
+              key={tile}
+              title={`${tile.toString()} ${coordinate(tile)}`}
+              className={clsx(
+                selected === tile
+                  ? 'selected'
+                  : selected && selectedMoves.some(moveTo(tile))
+                  ? isEnemy(board[selected], piece)
+                    ? 'enemy-target'
+                    : 'move-target'
+                  : tilesMoves[tile].length && 'selectable',
+                hoverMoves.length && hoverMoves.some(moveFrom(tile)) && 'attacker'
+                // (moveColor(hoverMoves[0]) !== pieceColor(piece) ? 'attacker' : 'defender')
+              )}
+              onMouseOver={() => setHoverPlayer(pieceColor(piece))}
+              onClick={() =>
+                tilesMoves[tile].length
+                  ? setState({ previousMoves: previousMoves, selected: tile })
+                  : selected && selectedMoves.some(moveTo(tile))
+                  ? setState({
+                      selected: undefined,
+                      previousMoves: [...previousMoves, selectedMoves.find(moveTo(tile))!],
+                    })
+                  : undefined
+              }
+            >
+              <div className={clsx('tile', tileColor(tile))}></div>
+              {pieceMap[piece] && (
+                <div className={clsx('piece', pieceColor(piece))}>{pieceMap[piece]}</div>
+              )}
+              <div>
+                {onlyIf(count(playerMoves, moveTo(tile)), (amount) => (
+                  <span
+                    className={clsx('control', player)}
+                    onMouseOver={() => setHoverMoves(playerMoves.filter(moveTo(tile)))}
+                    onMouseLeave={() => setHoverMoves([])}
+                  >
+                    {amount}
+                  </span>
+                ))}
+                {onlyIf(count(enemyMoves, moveTo(tile)), (amount) => (
+                  <span
+                    className={clsx('control', enemyColor(player))}
+                    onMouseOver={() => setHoverMoves(enemyMoves.filter(moveTo(tile)))}
+                    onMouseLeave={() => setHoverMoves([])}
+                  >
+                    {amount}
+                  </span>
+                ))}
+              </div>
             </div>
-            {pieceMap[p] && <div className="piece">{pieceMap[p]}</div>}
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
-      <pre>
-        Turn: {moves.length + 1} ({isWhiteTurn(moves) ? 'white' : 'black'}) Moves:
-        {JSON.stringify(moves, null, 2)}
-      </pre>
+      <div className="info">
+        <div>
+          Turn: {previousMoves.length + 1} ({turnColor(previousMoves)})
+        </div>
+        {checkMate ? (
+          <div>Checkmate</div>
+        ) : (
+          isAttacked(getKing(board, player), enemyMoves) && <div>Checked</div>
+        )}
+        <div>
+          {previousMoves.map(({ from, to, piece }, i) => (
+            <div key={i} className="move">
+              <code>
+                {pieceMap[piece]} {coordinate(from)} {'=>'} {coordinate(to)}
+              </code>
+            </div>
+          ))}
+          <div className="actions">
+            <button
+              onClick={() =>
+                setState({
+                  selected: undefined,
+                  previousMoves: previousMoves.slice(0, previousMoves.length - 1),
+                })
+              }
+            >
+              undo
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
 
-const boardAfterMove = (board: string[], move: Move) => {
+export default App
+
+// State
+const isAttacked = (tile: number, enemyMoves: Move[]) => enemyMoves.some(moveTo(tile))
+
+// MOVE
+const boardAfterMoves = (moves: Move[]) => moves.reduce(boardAfterMove, initialBoard)
+const boardAfterMove = (board: string[], move: Move, turn: number, allMoves: Move[]) => {
   const newBoard = [...board]
-  newBoard[move.from!] = ' '
-  newBoard[move.to] = board[move.from!]
+  applyMove(newBoard, move)
+  if (isCastleMove(move)) {
+    applyCastleRookMove(newBoard, move)
+  }
+  if (isPawnUpgrade(move)) {
+    applyPawnUpgrade(newBoard, move)
+  }
+  const previousMove = allMoves[turn - 1]
+  if (previousMove && isEnPassant(move, previousMove)) {
+    console.log({ previousMove, move })
+    applyEnPassant(newBoard, previousMove)
+  }
   return newBoard
 }
 
-const tileColor = (i: number) => ((i + Math.floor(i / 8)) % 2 === 0 ? 'white' : 'black')
-const isSelectable = (i: number, board: string[], moves: Move[]) =>
-  isWhiteTurn(moves) ? isWhitePiece(board[i]) : isBlackPiece(board[i])
-const isBlackPiece = (piece: string) => /[A-Z]/.test(piece)
-const isWhitePiece = (piece: string) => /[a-z]/.test(piece)
-const isWhiteTurn = (moves: Move[]) => moves.length % 2 === 0
-const turnColor = (moves: Move[]) => (moves.length % 2 === 0 ? 'white' : 'black')
-const pieceColor = (piece: string) =>
-  /[A-Z]/.test(piece) ? 'black' : /[a-z]/.test(piece) ? 'white' : undefined
+const applyMove = (board: string[], move: Move) => {
+  const piece = board[move.from]
+  board[move.from] = ' '
+  board[move.to] = piece
+}
 
-const boardAfterMoves = (moves: Move[]) => moves.reduce(boardAfterMove, initialBoard.split(''))
+/**
+ * Move must be a pawn attack.
+ * Previous move must be a double step.
+ */
+const isEnPassant = (move: Move, previousMove: Move) =>
+  move.piece.toLowerCase() === 'p' &&
+  previousMove.piece.toLowerCase() === 'p' &&
+  row(move.from) === (moveColor(move) === 'white' ? 3 : 4) &&
+  row(move.to) === (moveColor(move) === 'white' ? 2 : 5) &&
+  row(previousMove.from) === (moveColor(move) === 'white' ? 1 : 6) &&
+  column(move.to) === column(previousMove.to)
 
-export default App
+function applyEnPassant(board: string[], previousMove: Move) {
+  board[previousMove.to] = ' '
+}
 
-const initialBoard =
-  'RNBQKBNR' + //
+const isPawnUpgrade = (move: Move) =>
+  move.piece.toLowerCase() === 'p' && row(move.to) === (moveColor(move) === 'white' ? 0 : 7)
+
+function applyPawnUpgrade(board: string[], move: Move) {
+  board[move.to] = move.piece === 'p' ? 'q' : 'Q'
+}
+
+const isCastleMove = (move: Move) =>
+  move.piece.toLowerCase() === 'k' &&
+  (move.from === left(move.to, 2) || move.from === right(move.to, 2))
+
+function applyCastleRookMove(board: string[], move: Move) {
+  if (move.to === right(move.from, 2)) {
+    board[right(move.from)] = board[right(move.from, 3)]
+    board[right(move.from, 3)] = ' '
+  }
+  if (move.to === left(move.from, 2)) {
+    board[left(move.from, 1)] = board[left(move.from, 4)]
+    board[left(move.from, 4)] = ' '
+  }
+}
+
+const getTileMoves = (
+  board: string[],
+  tile: number,
+  previousMoves: Move[],
+  enemyControlMoves: Move[]
+) =>
+  [
+    ...getControlMoves(board, tile).filter(
+      (move) =>
+        (move.piece.toLowerCase() !== 'p' ||
+          (previousMoves.length && isEnPassant(move, last(previousMoves))) ||
+          isEnemy(move.piece, board[move.to])) &&
+        !isFriend(move.piece, board[move.to])
+    ),
+    ...getPawnMoves(board, tile),
+    ...getCastleMoves(board, tile, previousMoves, enemyControlMoves),
+  ].filter((move) => !resultsInCheck(board, move, previousMoves))
+
+const resultsInCheck = (board: string[], move: Move, previousMoves: Move[]) => {
+  //   const newMoves = [...previousMoves, move]
+  //   const newBoard = boardAfterMove(board, move, previousMoves.length, newMoves)
+  //   const player = turnColor(previousMoves)
+  //   const nextPlayer = turnColor(newMoves)
+  // return isAttacked(getKing(newBoard, player), getPlayerControlMoves(newBoard, nextPlayer))
+  return false
+}
+
+const getPlayerControlMoves = (board: string[], player: Color) =>
+  board.flatMap((piece, tile) =>
+    !isEmpty(piece) && player === pieceColor(piece) ? [...getControlMoves(board, tile)] : []
+  )
+
+const getKing = (board: string[], player: Color) =>
+  board.findIndex((piece) => piece === (player === 'black' ? 'K' : 'k'))
+
+const getControlMoves = (board: string[], tile: number): Move[] =>
+  [...getControlledTiles(board, tile)].map(createMove(board, tile))
+
+const getPawnMoves = (board: string[], tile: number): Move[] =>
+  [...getPawnMoveTiles(board, tile)].map(createMove(board, tile))
+
+const getCastleMoves = (
+  board: string[],
+  tile: number,
+  historicMoves: Move[],
+  enemyMoves: Move[]
+): Move[] =>
+  [...getCastleMoveTiles(board, tile, historicMoves, enemyMoves)].map(createMove(board, tile))
+
+const createMove = (board: string[], from: number) => (to: number) => ({
+  piece: board[from],
+  from,
+  to,
+})
+
+function* getPawnMoveTiles(board: string[], tile: number): Iterable<number> {
+  const piece = board[tile]
+  switch (piece) {
+    case 'P':
+      if (isEmpty(board[down(tile)])) yield down(tile)
+      if (row(tile) === 1 && isEmpty(board[down(tile)]) && isEmpty(board[down(tile, 2)]))
+        yield down(tile, 2)
+      break
+    case 'p':
+      if (isEmpty(board[up(tile)])) yield up(tile)
+      if (row(tile) === 6 && isEmpty(board[up(tile)]) && isEmpty(board[up(tile, 2)]))
+        yield up(tile, 2)
+      break
+  }
+}
+function* getControlledTiles(board: string[], tile: number): Iterable<number> {
+  const piece = board[tile]
+  switch (piece) {
+    case 'R':
+    case 'r':
+      yield* continuous(board, tile, up, hasUp)
+      yield* continuous(board, tile, down, hasDown)
+      yield* continuous(board, tile, left, hasLeft)
+      yield* continuous(board, tile, right, hasRight)
+      break
+    case 'N':
+    case 'n':
+      if (hasUpLeft(up(tile))) yield up(upLeft(tile))
+      if (hasUpRight(up(tile))) yield up(upRight(tile))
+      if (hasDownLeft(down(tile))) yield down(downLeft(tile))
+      if (hasDownRight(down(tile))) yield down(downRight(tile))
+      if (hasUpLeft(left(tile))) yield left(upLeft(tile))
+      if (hasDownLeft(left(tile))) yield left(downLeft(tile))
+      if (hasUpRight(right(tile))) yield right(upRight(tile))
+      if (hasDownRight(right(tile))) yield right(downRight(tile))
+      break
+    case 'B':
+    case 'b':
+      yield* continuous(board, tile, upLeft, hasUpLeft)
+      yield* continuous(board, tile, upRight, hasUpRight)
+      yield* continuous(board, tile, downLeft, hasDownLeft)
+      yield* continuous(board, tile, downRight, hasDownRight)
+      break
+    case 'K':
+    case 'k':
+      if (hasUp(tile)) yield up(tile)
+      if (hasDown(tile)) yield down(tile)
+      if (hasLeft(tile)) yield left(tile)
+      if (hasRight(tile)) yield right(tile)
+      if (hasUpLeft(tile)) yield upLeft(tile)
+      if (hasUpRight(tile)) yield upRight(tile)
+      if (hasDownLeft(tile)) yield downLeft(tile)
+      if (hasDownRight(tile)) yield downRight(tile)
+      break
+    case 'Q':
+    case 'q':
+      yield* continuous(board, tile, up, hasUp)
+      yield* continuous(board, tile, down, hasDown)
+      yield* continuous(board, tile, left, hasLeft)
+      yield* continuous(board, tile, right, hasRight)
+      yield* continuous(board, tile, upLeft, hasUpLeft)
+      yield* continuous(board, tile, upRight, hasUpRight)
+      yield* continuous(board, tile, downLeft, hasDownLeft)
+      yield* continuous(board, tile, downRight, hasDownRight)
+      break
+    case 'P':
+      if (hasDownLeft(tile)) yield downLeft(tile)
+      if (hasDownRight(tile)) yield downRight(tile)
+      break
+    case 'p':
+      if (hasUpLeft(tile)) yield upLeft(tile)
+      if (hasUpRight(tile)) yield upRight(tile)
+      break
+    default:
+      break
+  }
+}
+
+function* getCastleMoveTiles(
+  board: string[],
+  tile: number,
+  historicMoves: Move[],
+  enemyMoves: Move[]
+): Iterable<number> {
+  const piece = board[tile]
+  switch (piece) {
+    case 'K':
+      if (tile === BLACK_KING_START) {
+        if (canCastle(board, tile, historicMoves, 'king', enemyMoves)) yield right(tile, 2)
+        if (canCastle(board, tile, historicMoves, 'queen', enemyMoves)) yield left(tile, 2)
+      }
+      break
+    case 'k':
+      if (tile === WHITE_KING_START) {
+        if (canCastle(board, tile, historicMoves, 'king', enemyMoves)) yield right(tile, 2)
+        if (canCastle(board, tile, historicMoves, 'queen', enemyMoves)) yield left(tile, 2)
+      }
+      break
+  }
+}
+
+const BLACK_KING_START = 4
+const WHITE_KING_START = 60
+/**
+ * no previous moves for K && R
+ * empty spaces between K && R
+ * may not be checked
+ * may not result in check
+ */
+const canCastle = (
+  board: string[],
+  kingStart: number,
+  historicMoves: Move[],
+  side: 'king' | 'queen',
+  enemyMoves: Move[]
+) =>
+  !historicMoves.some(
+    ({ from }) =>
+      from === kingStart || from === (side === 'queen' ? left(kingStart, 4) : right(kingStart, 3))
+  ) &&
+  (side === 'queen' ? [-3, -2, -1] : [1, 2]).every((i) => isEmpty(board[kingStart + i])) &&
+  !isAttacked(kingStart, enemyMoves) &&
+  !isAttacked(side === 'queen' ? left(kingStart, 2) : right(kingStart, 2), enemyMoves)
+
+// Positions
+
+const isEmpty = (piece: string) => piece === ' '
+const isEnemy = (piece: string, other: string) =>
+  !isEmpty(other) && pieceColor(piece) !== pieceColor(other)
+const isFriend = (piece: string, other: string) =>
+  !isEmpty(piece) && pieceColor(piece) === pieceColor(other)
+
+function* continuous(
+  board: string[],
+  from: number,
+  next: (from: number) => number,
+  hasNext: (index: number) => boolean
+): Iterable<number> {
+  let current = from
+  while (hasNext(current)) {
+    current = next(current)
+    yield current
+    if (!isEmpty(board[current])) break
+  }
+}
+
+const coordinate = (tile: number) => 'abcdefgh'[column(tile)] + (8 - row(tile))
+
+const initialBoard = (
+  'RNBQKBNR' +
   'PPPPPPPP' +
   '        ' +
   '        ' +
@@ -97,6 +451,7 @@ const initialBoard =
   '        ' +
   'pppppppp' +
   'rnbqkbnr'
+).split('')
 
 const pieceMap: { [c: string]: string } = {
   R: '♜',
@@ -111,117 +466,4 @@ const pieceMap: { [c: string]: string } = {
   q: '♕',
   k: '♔',
   p: '♙',
-}
-
-function* getBasicMoves(board: string[], i: number): Iterable<number> {
-  switch (board[i]) {
-    case 'R':
-    case 'r':
-      yield* continuous(board, i, up, hasUp)
-      yield* continuous(board, i, down, hasDown)
-      yield* continuous(board, i, left, hasLeft)
-      yield* continuous(board, i, right, hasRight)
-      break
-    case 'N':
-    case 'n':
-      if (hasUpLeft(up(i)) && !friend(board, i, up(upLeft(i)))) yield up(upLeft(i))
-      if (hasUpRight(up(i)) && !friend(board, i, up(upRight(i)))) yield up(upRight(i))
-      if (hasDownLeft(down(i)) && !friend(board, i, down(downLeft(i)))) yield down(downLeft(i))
-      if (hasDownRight(down(i)) && !friend(board, i, down(downRight(i)))) yield down(downRight(i))
-      if (hasUpLeft(left(i)) && !friend(board, i, left(upLeft(i)))) yield left(upLeft(i))
-      if (hasDownLeft(left(i)) && !friend(board, i, left(downLeft(i)))) yield left(downLeft(i))
-      if (hasUpRight(right(i)) && !friend(board, i, right(upRight(i)))) yield right(upRight(i))
-      if (hasDownRight(down(i)) && !friend(board, i, right(downRight(i)))) yield right(downRight(i))
-      break
-    case 'B':
-    case 'b':
-      yield* continuous(board, i, upLeft, hasUpLeft)
-      yield* continuous(board, i, upRight, hasUpRight)
-      yield* continuous(board, i, downLeft, hasDownLeft)
-      yield* continuous(board, i, downRight, hasDownRight)
-      break
-    case 'K':
-    case 'k':
-      if (!friend(board, i, up(i))) yield up(i)
-      if (!friend(board, i, down(i))) yield down(i)
-      if (!friend(board, i, left(i))) yield left(i)
-      if (!friend(board, i, right(i))) yield right(i)
-      if (!friend(board, i, upLeft(i))) yield upLeft(i)
-      if (!friend(board, i, upRight(i))) yield upRight(i)
-      if (!friend(board, i, downLeft(i))) yield downLeft(i)
-      if (!friend(board, i, downRight(i))) yield downRight(i)
-      break
-    case 'Q':
-    case 'q':
-      yield* continuous(board, i, up, hasUp)
-      yield* continuous(board, i, down, hasDown)
-      yield* continuous(board, i, left, hasLeft)
-      yield* continuous(board, i, right, hasRight)
-      yield* continuous(board, i, upLeft, hasUpLeft)
-      yield* continuous(board, i, upRight, hasUpRight)
-      yield* continuous(board, i, downLeft, hasDownLeft)
-      yield* continuous(board, i, downRight, hasDownRight)
-      break
-    case 'P':
-      if (empty(board, down(i))) yield down(i)
-      if (row(i) === 1 && empty(board, down(i)) && empty(board, down(down(i)))) yield down(down(i))
-      if (enemy(board, i, downLeft(i))) yield downLeft(i)
-      if (enemy(board, i, downRight(i))) yield downRight(i)
-      break
-    case 'p':
-      if (empty(board, up(i))) yield up(i)
-      if (row(i) === 6 && empty(board, up(i)) && empty(board, up(up(i)))) yield up(up(i))
-      if (enemy(board, i, upLeft(i))) yield upLeft(i)
-      if (enemy(board, i, upRight(i))) yield upRight(i)
-      break
-    default:
-      break
-  }
-}
-/** 0..7 */
-const row = (i: number) => Math.floor(i / 8)
-/** 0..7 */
-const column = (i: number) => i % 8
-
-const left = (i: number) => i - 1
-const right = (i: number) => i + 1
-const up = (i: number) => i - 8
-const down = (i: number) => i + 8
-
-const upLeft = (i: number) => up(left(i))
-const upRight = (i: number) => up(right(i))
-const downLeft = (i: number) => down(left(i))
-const downRight = (i: number) => down(right(i))
-
-const hasLeft = (i: number) => column(i) > 0
-const hasRight = (i: number) => column(i) < 7
-const hasUp = (i: number) => row(i) > 0
-const hasDown = (i: number) => row(i) < 7
-
-const hasUpLeft = (i: number) => hasUp(i) && hasLeft(i)
-const hasUpRight = (i: number) => hasUp(i) && hasRight(i)
-const hasDownLeft = (i: number) => hasDown(i) && hasLeft(i)
-const hasDownRight = (i: number) => hasDown(i) && hasRight(i)
-
-const empty = (board: string[], index: number) => board[index] === ' '
-const enemy = (board: string[], index: number, target: number) =>
-  !empty(board, target) && pieceColor(board[index]) !== pieceColor(board[target])
-const friend = (board: string[], index: number, target: number) =>
-  !empty(board, target) && pieceColor(board[index]) === pieceColor(board[target])
-
-const enemyOf = (player: 'white' | 'black', piece: string) => player !== pieceColor(piece)
-
-function* continuous(
-  board: string[],
-  from: number,
-  next: (from: number) => number,
-  hasNext: (index: number) => boolean
-): Iterable<number> {
-  let current = from
-  while (hasNext(current) && !friend(board, from, next(current))) {
-    current = next(current)
-
-    yield current
-    if (enemy(board, from, current)) break
-  }
 }

@@ -19,3 +19,5 @@ export const isValue = <T>(value: T): value is NonNullable<T> =>
 
 /** Removes all undefined properties */
 export const pruned = <T>(object: T): T => JSON.parse(JSON.stringify(object))
+
+export const having = <T, S>(value: T, callback: (v: T) => S) => callback(value)
