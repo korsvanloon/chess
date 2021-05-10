@@ -1,10 +1,11 @@
 import clsx from 'clsx'
 import { parse, stringify } from 'querystring'
 import { useEffect, useState } from 'react'
+import { boardAfterMove, boardAfterMoves } from './lib/board'
 import { last } from './lib/collection'
-import { Color, turnColor, enemyColor, tileColor, pieceColor, moveColor } from './lib/color'
+import { Color, turnColor, enemyColor, pieceColor } from './lib/color'
 import { count } from './lib/math'
-import { Move, moveFrom, moveTo } from './lib/move'
+import { isEnPassant, Move, moveFrom, moveTo } from './lib/move'
 import {
   row,
   up,
@@ -23,9 +24,12 @@ import {
   downLeft,
   hasDownRight,
   downRight,
-  column,
+  coordinate,
 } from './lib/tile'
+import { deserializeMoves, serializeMoves } from './lib/url-serialization'
 import { onlyIf } from './lib/util'
+import { unicodePieceMap } from './pieceMap'
+import Square from './Square'
 
 type State = {
   selected: number | undefined
@@ -37,133 +41,137 @@ function App() {
     selected: undefined,
     previousMoves: [],
   })
+  const [hoverMoves, setHoverMoves] = useState<Move[]>([])
+  const [hoverTurn, setHoverTurn] = useState<number>()
+
   useEffect(() => {
-    const { moves } = parse(window.location.search)
-    const initialMoves = (moves as string)
-      ?.split('-')
-      .map((s) => s.split('_'))
-      .map(([piece, from, to]) => ({
-        piece,
-        from: Number(from),
-        to: Number(to),
-      }))
-    // console.log(moves, initialMoves)
+    const initialMoves = deserializeMoves(parse(window.location.search.slice(1)).moves as string)
     if (initialMoves?.length) setState({ previousMoves: initialMoves, selected: undefined })
   }, [])
+
   useEffect(() => {
-    const moveString = previousMoves.map((m) => `${m.piece}_${m.from}_${m.to}`).join('-')
-    const queryParams = stringify({
-      moves: moveString,
-    })
-    const url = `${window.location.pathname}${moveString ? '?' + queryParams : ''}`
-    window.history.replaceState(undefined, '', url)
+    if (previousMoves.length) {
+      window.history.replaceState(
+        undefined,
+        '',
+        `${window.location.pathname}?${stringify({
+          moves: serializeMoves(previousMoves),
+        })}`
+      )
+    }
   }, [previousMoves])
 
-  const [hoverPlayer, setHoverPlayer] = useState<Color>()
-  const [hoverMoves, setHoverMoves] = useState<Move[]>([])
-
   const board = boardAfterMoves(previousMoves)
+  const hoverBoard =
+    hoverTurn !== undefined ? boardAfterMoves(previousMoves.slice(0, hoverTurn)) : undefined
   const player = turnColor(previousMoves)
 
-  const playerMoves = getPlayerControlMoves(board, player)
-  const enemyMoves = getPlayerControlMoves(board, enemyColor(player))
+  const playerControlMoves = getPlayerControlMoves(board, player)
+  const enemyControlMoves = getPlayerControlMoves(board, enemyColor(player))
 
-  const tilesMoves = board.map((piece, tile) =>
-    pieceColor(piece) === player ? getTileMoves(board, tile, previousMoves, enemyMoves) : []
+  const playerMoves = board.map((piece, tile) =>
+    pieceColor(piece) === player ? getTileMoves(board, tile, previousMoves, enemyControlMoves) : []
   )
 
-  const selectedMoves = selected ? tilesMoves[selected] : []
+  const selectedMoves = selected !== undefined ? playerMoves[selected] : []
 
-  const checkMate = tilesMoves.flat().length === 0
+  const checked = isAttacked(getKing(board, player), enemyControlMoves)
+  const noMoves = playerMoves.flat().length === 0
 
-  // console.log({ playerMoves, enemyMoves })
   return (
     <div className="App">
-      <div className={clsx('game', hoverPlayer && `hover-${hoverPlayer}`)}>
-        <div className="board">
-          {board.map((piece, tile) => (
-            <div
-              key={tile}
-              title={`${tile.toString()} ${coordinate(tile)}`}
-              className={clsx(
-                selected === tile
-                  ? 'selected'
-                  : selected && selectedMoves.some(moveTo(tile))
-                  ? isEnemy(board[selected], piece)
-                    ? 'enemy-target'
-                    : 'move-target'
-                  : tilesMoves[tile].length && 'selectable',
-                hoverMoves.length && hoverMoves.some(moveFrom(tile)) && 'attacker'
-                // (moveColor(hoverMoves[0]) !== pieceColor(piece) ? 'attacker' : 'defender')
-              )}
-              onMouseOver={() => setHoverPlayer(pieceColor(piece))}
-              onClick={() =>
-                tilesMoves[tile].length
-                  ? setState({ previousMoves: previousMoves, selected: tile })
-                  : selected && selectedMoves.some(moveTo(tile))
-                  ? setState({
-                      selected: undefined,
-                      previousMoves: [...previousMoves, selectedMoves.find(moveTo(tile))!],
-                    })
-                  : undefined
-              }
-            >
-              <div className={clsx('tile', tileColor(tile))}></div>
-              {pieceMap[piece] && (
-                <div className={clsx('piece', pieceColor(piece))}>{pieceMap[piece]}</div>
-              )}
-              <div>
-                {onlyIf(count(playerMoves, moveTo(tile)), (amount) => (
-                  <span
-                    className={clsx('control', player)}
-                    onMouseOver={() => setHoverMoves(playerMoves.filter(moveTo(tile)))}
-                    onMouseLeave={() => setHoverMoves([])}
-                  >
-                    {amount}
-                  </span>
-                ))}
-                {onlyIf(count(enemyMoves, moveTo(tile)), (amount) => (
-                  <span
-                    className={clsx('control', enemyColor(player))}
-                    onMouseOver={() => setHoverMoves(enemyMoves.filter(moveTo(tile)))}
-                    onMouseLeave={() => setHoverMoves([])}
-                  >
-                    {amount}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
       <div className="info">
         <div>
           Turn: {previousMoves.length + 1} ({turnColor(previousMoves)})
         </div>
-        {checkMate ? (
-          <div>Checkmate</div>
-        ) : (
-          isAttacked(getKing(board, player), enemyMoves) && <div>Checked</div>
-        )}
-        <div>
-          {previousMoves.map(({ from, to, piece }, i) => (
-            <div key={i} className="move">
-              <code>
-                {pieceMap[piece]} {coordinate(from)} {'=>'} {coordinate(to)}
-              </code>
+        {checked ? (
+          noMoves ? (
+            <div>Checkmate</div>
+          ) : (
+            <div>Checked</div>
+          )
+        ) : noMoves ? (
+          <div>Draw</div>
+        ) : undefined}
+      </div>
+      <div className="row">
+        <div className={clsx('game')}>
+          <div className="board">
+            {hoverBoard
+              ? hoverBoard.map((piece, tile) => <Square key={tile} piece={piece} tile={tile} />)
+              : board.map((piece, tile) => (
+                  <Square
+                    key={tile}
+                    piece={piece}
+                    tile={tile}
+                    className={clsx(
+                      selected === tile
+                        ? 'selected'
+                        : selectedMoves.some(moveTo(tile))
+                        ? isEnemy(board[selected!], piece)
+                          ? 'enemy-target'
+                          : 'move-target'
+                        : playerMoves[tile].length && 'selectable',
+                      hoverMoves.length &&
+                        hoverMoves.some(moveFrom(tile)) &&
+                        (isSupportMove(board, hoverMoves.find(moveFrom(tile))!, player)
+                          ? 'defender'
+                          : 'attacker')
+                    )}
+                    onMouseOver={() =>
+                      setHoverMoves([
+                        ...playerControlMoves.filter(moveTo(tile)),
+                        ...enemyControlMoves.filter(moveTo(tile)),
+                      ])
+                    }
+                    onMouseLeave={() => setHoverMoves([])}
+                    onClick={() =>
+                      playerMoves[tile].length
+                        ? setState({ previousMoves: previousMoves, selected: tile })
+                        : selectedMoves.some(moveTo(tile))
+                        ? setState({
+                            selected: undefined,
+                            previousMoves: [...previousMoves, selectedMoves.find(moveTo(tile))!],
+                          })
+                        : undefined
+                    }
+                  >
+                    {onlyIf(count(playerControlMoves, moveTo(tile)), (amount) => (
+                      <span className={clsx('control', player)}>{amount}</span>
+                    ))}
+                    {onlyIf(count(enemyControlMoves, moveTo(tile)), (amount) => (
+                      <span className={clsx('control', enemyColor(player))}>{amount}</span>
+                    ))}
+                  </Square>
+                ))}
+          </div>
+        </div>
+        <div className="moves">
+          <div>
+            {previousMoves.map(({ from, to, piece }, i) => (
+              <div
+                key={i}
+                className="move"
+                onMouseOver={() => setHoverTurn(i)}
+                onMouseLeave={() => setHoverTurn(undefined)}
+              >
+                <code>
+                  {unicodePieceMap[piece]} {coordinate(from)} {'=>'} {coordinate(to)}
+                </code>
+              </div>
+            ))}
+            <div className="actions">
+              <button
+                onClick={() =>
+                  setState({
+                    selected: undefined,
+                    previousMoves: previousMoves.slice(0, previousMoves.length - 1),
+                  })
+                }
+              >
+                undo
+              </button>
             </div>
-          ))}
-          <div className="actions">
-            <button
-              onClick={() =>
-                setState({
-                  selected: undefined,
-                  previousMoves: previousMoves.slice(0, previousMoves.length - 1),
-                })
-              }
-            >
-              undo
-            </button>
           </div>
         </div>
       </div>
@@ -175,69 +183,11 @@ export default App
 
 // State
 const isAttacked = (tile: number, enemyMoves: Move[]) => enemyMoves.some(moveTo(tile))
+const isSupportMove = (board: string[], move: Move, player: Color) =>
+  pieceColor(board[move.from]) === pieceColor(board[move.to]) ||
+  (isEmpty(board[move.to]) && pieceColor(move.piece) === player)
 
 // MOVE
-const boardAfterMoves = (moves: Move[]) => moves.reduce(boardAfterMove, initialBoard)
-const boardAfterMove = (board: string[], move: Move, turn: number, allMoves: Move[]) => {
-  const newBoard = [...board]
-  applyMove(newBoard, move)
-  if (isCastleMove(move)) {
-    applyCastleRookMove(newBoard, move)
-  }
-  if (isPawnUpgrade(move)) {
-    applyPawnUpgrade(newBoard, move)
-  }
-  const previousMove = allMoves[turn - 1]
-  if (previousMove && isEnPassant(move, previousMove)) {
-    console.log({ previousMove, move })
-    applyEnPassant(newBoard, previousMove)
-  }
-  return newBoard
-}
-
-const applyMove = (board: string[], move: Move) => {
-  const piece = board[move.from]
-  board[move.from] = ' '
-  board[move.to] = piece
-}
-
-/**
- * Move must be a pawn attack.
- * Previous move must be a double step.
- */
-const isEnPassant = (move: Move, previousMove: Move) =>
-  move.piece.toLowerCase() === 'p' &&
-  previousMove.piece.toLowerCase() === 'p' &&
-  row(move.from) === (moveColor(move) === 'white' ? 3 : 4) &&
-  row(move.to) === (moveColor(move) === 'white' ? 2 : 5) &&
-  row(previousMove.from) === (moveColor(move) === 'white' ? 1 : 6) &&
-  column(move.to) === column(previousMove.to)
-
-function applyEnPassant(board: string[], previousMove: Move) {
-  board[previousMove.to] = ' '
-}
-
-const isPawnUpgrade = (move: Move) =>
-  move.piece.toLowerCase() === 'p' && row(move.to) === (moveColor(move) === 'white' ? 0 : 7)
-
-function applyPawnUpgrade(board: string[], move: Move) {
-  board[move.to] = move.piece === 'p' ? 'q' : 'Q'
-}
-
-const isCastleMove = (move: Move) =>
-  move.piece.toLowerCase() === 'k' &&
-  (move.from === left(move.to, 2) || move.from === right(move.to, 2))
-
-function applyCastleRookMove(board: string[], move: Move) {
-  if (move.to === right(move.from, 2)) {
-    board[right(move.from)] = board[right(move.from, 3)]
-    board[right(move.from, 3)] = ' '
-  }
-  if (move.to === left(move.from, 2)) {
-    board[left(move.from, 1)] = board[left(move.from, 4)]
-    board[left(move.from, 4)] = ' '
-  }
-}
 
 const getTileMoves = (
   board: string[],
@@ -249,6 +199,7 @@ const getTileMoves = (
     ...getControlMoves(board, tile).filter(
       (move) =>
         (move.piece.toLowerCase() !== 'p' ||
+          // Pawn control moves are only valid if there is an enemy or En Passant
           (previousMoves.length && isEnPassant(move, last(previousMoves))) ||
           isEnemy(move.piece, board[move.to])) &&
         !isFriend(move.piece, board[move.to])
@@ -258,12 +209,12 @@ const getTileMoves = (
   ].filter((move) => !resultsInCheck(board, move, previousMoves))
 
 const resultsInCheck = (board: string[], move: Move, previousMoves: Move[]) => {
-  //   const newMoves = [...previousMoves, move]
-  //   const newBoard = boardAfterMove(board, move, previousMoves.length, newMoves)
-  //   const player = turnColor(previousMoves)
-  //   const nextPlayer = turnColor(newMoves)
-  // return isAttacked(getKing(newBoard, player), getPlayerControlMoves(newBoard, nextPlayer))
-  return false
+  const newMoves = [...previousMoves, move]
+  const newBoard = boardAfterMove(board, move, previousMoves.length, newMoves)
+  return isAttacked(
+    getKing(newBoard, turnColor(previousMoves)),
+    getPlayerControlMoves(newBoard, turnColor(newMoves))
+  )
 }
 
 const getPlayerControlMoves = (board: string[], player: Color) =>
@@ -294,9 +245,11 @@ const createMove = (board: string[], from: number) => (to: number) => ({
   to,
 })
 
+/**
+ * 1 square forward and 2 if it's the first move.
+ */
 function* getPawnMoveTiles(board: string[], tile: number): Iterable<number> {
-  const piece = board[tile]
-  switch (piece) {
+  switch (board[tile]) {
     case 'P':
       if (isEmpty(board[down(tile)])) yield down(tile)
       if (row(tile) === 1 && isEmpty(board[down(tile)]) && isEmpty(board[down(tile, 2)]))
@@ -310,8 +263,7 @@ function* getPawnMoveTiles(board: string[], tile: number): Iterable<number> {
   }
 }
 function* getControlledTiles(board: string[], tile: number): Iterable<number> {
-  const piece = board[tile]
-  switch (piece) {
+  switch (board[tile]) {
     case 'R':
     case 'r':
       yield* continuous(board, tile, up, hasUp)
@@ -438,32 +390,4 @@ function* continuous(
     yield current
     if (!isEmpty(board[current])) break
   }
-}
-
-const coordinate = (tile: number) => 'abcdefgh'[column(tile)] + (8 - row(tile))
-
-const initialBoard = (
-  'RNBQKBNR' +
-  'PPPPPPPP' +
-  '        ' +
-  '        ' +
-  '        ' +
-  '        ' +
-  'pppppppp' +
-  'rnbqkbnr'
-).split('')
-
-const pieceMap: { [c: string]: string } = {
-  R: '♜',
-  N: '♞',
-  B: '♝',
-  Q: '♛',
-  K: '♚',
-  P: '♟︎',
-  r: '♖',
-  n: '♘',
-  b: '♗',
-  q: '♕',
-  k: '♔',
-  p: '♙',
 }

@@ -22,3 +22,7 @@ export const hasUpLeft = (tile: number) => hasUp(tile) && hasLeft(tile)
 export const hasUpRight = (tile: number) => hasUp(tile) && hasRight(tile)
 export const hasDownLeft = (tile: number) => hasDown(tile) && hasLeft(tile)
 export const hasDownRight = (tile: number) => hasDown(tile) && hasRight(tile)
+
+//
+
+export const coordinate = (tile: number) => 'abcdefgh'[column(tile)] + (8 - row(tile))

@@ -2,7 +2,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif,
     'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
 }
-.App {
+.row {
   display: flex;
 }
 
@@ -16,7 +16,7 @@ body {
   text-align: center;
   position: absolute;
   left: 6px;
-  opacity: 0.3;
+  opacity: 0.5;
 }
 .control.black {
   background-color: hsla(0, 0%, 0%, 0.3);
@@ -28,18 +28,23 @@ body {
   color: white;
   bottom: 30%;
 }
+.piece > svg {
+  width: 60px;
+}
+.piece.black {
+  color: hsl(0, 0%, 20%);
+}
+.piece.white {
+  color: hsl(0, 0%, 80%);
+}
 .piece.white + div .control.white,
 .piece.black + div .control.black {
-  background-color: hsla(120, 100%, 50%, 0.3);
+  background-color: hsla(120, 100%, 50%, 0.5);
 }
 .piece.black + div .control.white,
 .piece.white + div .control.black {
   background-color: hsla(0, 100%, 50%, 0.3);
   opacity: 1;
-}
-.hover-black .control.black,
-.hover-white .control.white {
-  /* opacity: 1; */
 }
 .board {
   width: 800px;
@@ -153,6 +158,10 @@ body {
 
 .info {
   padding: 20px;
+}
+.moves {
+  max-height: 800px;
+  overflow-y: auto;
 }
 .move {
   text-align: center;
