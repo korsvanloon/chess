@@ -25,6 +25,7 @@ import {
   hasDownRight,
   downRight,
   coordinate,
+  column,
 } from './lib/tile'
 import { deserializeMoves, serializeMoves } from './lib/url-serialization'
 import { onlyIf } from './lib/util'
@@ -61,10 +62,12 @@ function App() {
     }
   }, [previousMoves])
 
-  const board = boardAfterMoves(previousMoves)
-  const hoverBoard =
-    hoverTurn !== undefined ? boardAfterMoves(previousMoves.slice(0, hoverTurn)) : undefined
-  const player = turnColor(previousMoves)
+  const moves = hoverTurn === undefined ? previousMoves : previousMoves.slice(0, hoverTurn)
+
+  const board = boardAfterMoves(moves)
+  // const hoverBoard =
+  //   hoverTurn !== undefined ? boardAfterMoves(previousMoves.slice(0, hoverTurn)) : undefined
+  const player = turnColor(moves)
 
   const playerControlMoves = getPlayerControlMoves(board, player)
   const enemyControlMoves = getPlayerControlMoves(board, enemyColor(player))
@@ -86,7 +89,7 @@ function App() {
         </div>
         {checked ? (
           noMoves ? (
-            <div>Checkmate</div>
+            <div>Checkmate, {enemyColor(player)} wins!</div>
           ) : (
             <div>Checked</div>
           )
@@ -95,70 +98,109 @@ function App() {
         ) : undefined}
       </div>
       <div className="row">
-        <div className={clsx('game')}>
+        <div className={clsx('game', 'player', player)}>
+          <svg viewBox="0 0 8 8" className="control-moves">
+            <g className="player ">
+              {playerControlMoves.map((m) => (
+                <line
+                  k={coordinate(m.from) + coordinate(m.to)}
+                  x1={column(m.from) + 0.5}
+                  y1={row(m.from) + 0.5}
+                  x2={column(m.to) + 0.5}
+                  y2={row(m.to) + 0.5}
+                />
+              ))}
+            </g>
+            <g className="enemy">
+              {enemyControlMoves.map((m) => (
+                <line
+                  k={coordinate(m.from) + coordinate(m.to)}
+                  x1={column(m.from) + 0.5}
+                  y1={row(m.from) + 0.5}
+                  x2={column(m.to) + 0.5}
+                  y2={row(m.to) + 0.5}
+                />
+              ))}
+            </g>
+          </svg>
           <div className="board">
-            {hoverBoard
-              ? hoverBoard.map((piece, tile) => <Square key={tile} piece={piece} tile={tile} />)
-              : board.map((piece, tile) => (
-                  <Square
-                    key={tile}
-                    piece={piece}
-                    tile={tile}
-                    className={clsx(
-                      selected === tile
-                        ? 'selected'
-                        : selectedMoves.some(moveTo(tile))
-                        ? isEnemy(board[selected!], piece)
-                          ? 'enemy-target'
-                          : 'move-target'
-                        : playerMoves[tile].length && 'selectable',
-                      hoverMoves.length &&
-                        hoverMoves.some(moveFrom(tile)) &&
-                        (isSupportMove(board, hoverMoves.find(moveFrom(tile))!, player)
-                          ? 'defender'
-                          : 'attacker')
-                    )}
-                    onMouseOver={() =>
-                      setHoverMoves([
-                        ...playerControlMoves.filter(moveTo(tile)),
-                        ...enemyControlMoves.filter(moveTo(tile)),
-                      ])
-                    }
-                    onMouseLeave={() => setHoverMoves([])}
-                    onClick={() =>
-                      playerMoves[tile].length
-                        ? setState({ previousMoves: previousMoves, selected: tile })
-                        : selectedMoves.some(moveTo(tile))
-                        ? setState({
-                            selected: undefined,
-                            previousMoves: [...previousMoves, selectedMoves.find(moveTo(tile))!],
-                          })
-                        : undefined
-                    }
-                  >
-                    {onlyIf(count(playerControlMoves, moveTo(tile)), (amount) => (
-                      <span className={clsx('control', player)}>{amount}</span>
-                    ))}
-                    {onlyIf(count(enemyControlMoves, moveTo(tile)), (amount) => (
-                      <span className={clsx('control', enemyColor(player))}>{amount}</span>
-                    ))}
-                  </Square>
-                ))}
+            {board.map((piece, tile) => (
+              <Square
+                key={tile}
+                piece={piece}
+                tile={tile}
+                className={clsx(
+                  selected === tile
+                    ? 'selected'
+                    : selectedMoves.some(moveTo(tile))
+                    ? isEnemy(board[selected!], piece)
+                      ? 'enemy-target'
+                      : 'move-target'
+                    : playerMoves[tile].length && 'selectable',
+                  hoverMoves.length &&
+                    hoverMoves.some(moveFrom(tile)) &&
+                    (isSupportMove(board, hoverMoves.find(moveFrom(tile))!, player)
+                      ? 'defender'
+                      : 'attacker')
+                )}
+                onMouseOver={() =>
+                  setHoverMoves([
+                    ...playerControlMoves.filter(moveTo(tile)),
+                    ...enemyControlMoves.filter(moveTo(tile)),
+                  ])
+                }
+                onMouseLeave={() => setHoverMoves([])}
+                onClick={() =>
+                  playerMoves[tile].length
+                    ? setState({ previousMoves: previousMoves, selected: tile })
+                    : selectedMoves.some(moveTo(tile))
+                    ? setState({
+                        selected: undefined,
+                        previousMoves: [...previousMoves, selectedMoves.find(moveTo(tile))!],
+                      })
+                    : undefined
+                }
+              >
+                {onlyIf(
+                  count(playerControlMoves, moveTo(tile)) - count(enemyControlMoves, moveTo(tile)),
+                  (amount) => (
+                    <span
+                      className={clsx(
+                        'control',
+                        `control-${Math.min(Math.abs(amount), 3)}`,
+                        amount > 0 ? player : enemyColor(player)
+                      )}
+                    />
+                  )
+                )}
+              </Square>
+            ))}
           </div>
         </div>
         <div className="moves">
           <div>
             {previousMoves.map(({ from, to, piece }, i) => (
-              <div
+              <button
                 key={i}
                 className="move"
-                onMouseOver={() => setHoverTurn(i)}
-                onMouseLeave={() => setHoverTurn(undefined)}
+                onMouseOver={() => setHoverTurn(i + 1)}
+                onMouseLeave={() =>
+                  document.activeElement?.classList.contains('move')
+                    ? setHoverTurn(
+                        [...(document.activeElement.parentElement?.children ?? [])].indexOf(
+                          document.activeElement
+                        ) + 1
+                      )
+                    : setHoverTurn(undefined)
+                }
+                onFocus={() => setHoverTurn(i + 1)}
+                onBlur={() => setHoverTurn(undefined)}
+                onDoubleClick={() =>
+                  setState({ selected: undefined, previousMoves: previousMoves.slice(0, i + 1) })
+                }
               >
-                <code>
-                  {unicodePieceMap[piece]} {coordinate(from)} {'=>'} {coordinate(to)}
-                </code>
-              </div>
+                {unicodePieceMap[piece]} {coordinate(from)} {coordinate(to)}
+              </button>
             ))}
             <div className="actions">
               <button

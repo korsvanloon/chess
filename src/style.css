@@ -7,26 +7,17 @@ body {
 }
 
 .control {
-  display: inline-block;
+  display: block;
   font-size: 16px;
   font-weight: bold;
   border-radius: 6px;
-  width: 20px;
-  height: 20px;
+  width: 50%;
+  height: 50%;
   text-align: center;
   position: absolute;
-  left: 6px;
   opacity: 0.5;
-}
-.control.black {
-  background-color: hsla(0, 0%, 0%, 0.3);
-  color: black;
-  top: 30%;
-}
-.control.white {
-  background-color: hsla(0, 0%, 100%, 0.3);
-  color: white;
-  bottom: 30%;
+  top: 25%;
+  left: 25%;
 }
 .piece > svg {
   width: 60px;
@@ -37,14 +28,29 @@ body {
 .piece.white {
   color: hsl(0, 0%, 80%);
 }
-.piece.white + div .control.white,
-.piece.black + div .control.black {
-  background-color: hsla(120, 100%, 50%, 0.5);
+.player.white .control.white,
+.player.black .control.black {
+  background-color: hsla(120, 20%, 50%, 0.9);
 }
-.piece.black + div .control.white,
-.piece.white + div .control.black {
-  background-color: hsla(0, 100%, 50%, 0.3);
-  opacity: 1;
+.player.white .control.black,
+.player.black .control.white {
+  background-color: hsla(0, 20%, 50%, 0.9);
+}
+.player.white .control-2.white,
+.player.black .control-2.black {
+  background-color: hsla(120, 60%, 50%, 0.9);
+}
+.player.white .control-2.black,
+.player.black .control-2.white {
+  background-color: hsla(0, 60%, 50%, 0.9);
+}
+.player.white .control-3.white,
+.player.black .control-3.black {
+  background-color: hsla(120, 100%, 50%, 0.9);
+}
+.player.white .control-3.black,
+.player.black .control-3.white {
+  background-color: hsla(0, 100%, 50%, 0.9);
 }
 .board {
   width: 800px;
@@ -52,16 +58,17 @@ body {
   display: flex;
   flex-wrap: wrap;
   font-size: 64px;
-  background-image: linear-gradient(45deg, black 25%, transparent 25%),
-    linear-gradient(-45deg, black 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, black 75%),
-    linear-gradient(-45deg, transparent 75%, black 75%);
+  background-color: hsla(60, 20%, 60%, 1);
+  background-image: linear-gradient(45deg, hsla(60, 20%, 40%, 1) 25%, transparent 25%),
+    linear-gradient(-45deg, hsla(60, 20%, 40%, 1) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, hsla(60, 20%, 40%, 1) 75%),
+    linear-gradient(-45deg, transparent 75%, hsla(60, 20%, 40%, 1) 75%);
   background-size: 25% 25%;
   background-position: 0 0, 0 100px, 100px -100px, -100px 0px;
 }
 .game {
   position: relative;
-  padding: 20px;
+  margin: 20px;
 }
 .game::before {
   content: '8 7 6 5 4 3 2 1';
@@ -69,7 +76,7 @@ body {
   display: block;
   width: 20px;
   height: 100%;
-  left: 0;
+  left: -20px;
   font-size: 20px;
   line-height: 100px;
 }
@@ -89,7 +96,6 @@ body {
   position: relative;
 }
 .board > div > .tile {
-  background-color: hsla(60, 20%, 50%, 1);
   opacity: 0.8;
   width: 100%;
   height: 100%;
@@ -103,15 +109,12 @@ body {
 .board > .selectable > .piece {
   transition: box-shadow 0.1s ease;
   box-shadow: inset 0 0 0 3px hsla(0, 0%, 0%, 0.5);
-  /* border: 20px solid hsla(0, 0%, 100%, 0.3); */
 }
 .board > .selectable:hover > .piece {
   box-shadow: inset 0 0 6px 6px hsla(0, 0%, 100%, 0.8);
-  /* border: 6px solid hsla(0, 0%, 0%, 0.3); */
 }
 .board > .selected > .piece {
   box-shadow: inset 0 0 2px 6px hsla(0, 0%, 100%, 1);
-  /* border: 6px solid black; */
 }
 .board > .move-target > .tile::before {
   content: '';
@@ -121,8 +124,7 @@ body {
   height: 50%;
   margin: 25%;
   border-radius: 50%;
-  opacity: 0.5;
-  background-color: hsla(100, 50%, 80%, 1);
+  background-color: hsla(100, 50%, 0%, 0.3);
 }
 .board > .enemy-target > .tile::before {
   content: '';
@@ -140,10 +142,10 @@ body {
   opacity: 1;
 }
 .board > .attacker > .tile {
-  background-color: hsla(0, 20%, 50%, 1);
+  background-color: hsla(0, 100%, 50%, 1);
 }
 .board > .defender > .tile {
-  background-color: hsla(120, 20%, 50%, 1);
+  background-color: hsla(120, 100%, 50%, 1);
 }
 
 .piece {
@@ -154,22 +156,32 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
+  z-index: 1;
 }
 
 .info {
   padding: 20px;
+  display: flex;
 }
 .moves {
   max-height: 800px;
   overflow-y: auto;
+  padding: 20px;
 }
 .move {
+  display: block;
+  border: none;
   text-align: center;
   padding: 4px 8px;
   line-height: 16px;
+  background-color: hsla(0, 0%, 90%, 0.8);
+  font-family: monospace;
+}
+.move:focus {
+  outline: 3px solid hsla(240, 80%, 50%, 0.8);
 }
 .move:nth-child(even) {
-  background-color: black;
+  background-color: hsla(0, 0%, 10%, 0.8);
   color: white;
 }
 .actions {
@@ -185,15 +197,27 @@ body {
   transition: box-shadow 0.2s ease, background-color 0.2s ease;
   background-color: hsla(0, 0%, 50%, 0.3);
   cursor: pointer;
-  /* outline: 0 solid hsla(0, 0%, 0%, 0.3); */
 }
-.actions button:hover {
+button:hover {
   box-shadow: 0 0 0 0 hsla(0, 0%, 0%, 0.3);
 }
-.actions button:active {
+button:active {
   background-color: hsla(0, 0%, 0%, 0.3);
 }
 .actions button:focus:not(:active) {
-  /* box-shadow: 0 0.5px 2px 0.5px hsla(0, 0%, 0%, 0.3); */
-  outline: 1px solid hsla(0, 0%, 0%, 0.3);
+  outline: 3px solid hsla(240, 80%, 50%, 0.8);
+}
+
+.control-moves {
+  stroke-width: 0.01px;
+  position: absolute;
+  stroke-dasharray: 0.03, 0.07;
+  top: 0;
+}
+.control-moves .enemy {
+  stroke-dashoffset: 0.02;
+  stroke: red;
+}
+.control-moves .player {
+  stroke: green;
 }
