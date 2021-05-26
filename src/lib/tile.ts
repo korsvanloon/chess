@@ -1,6 +1,6 @@
-/** 0..7 */
+/** Returns a number between 0..7, where 0 is the top row. */
 export const row = (tile: number) => Math.floor(tile / 8)
-/** 0..7 */
+/** Returns a number between 0..7, where 0 is the most left column. */
 export const column = (tile: number) => tile % 8
 
 export const left = (tile: number, amount = 1) => tile - amount
@@ -23,6 +23,5 @@ export const hasUpRight = (tile: number) => hasUp(tile) && hasRight(tile)
 export const hasDownLeft = (tile: number) => hasDown(tile) && hasLeft(tile)
 export const hasDownRight = (tile: number) => hasDown(tile) && hasRight(tile)
 
-//
-
+/** Converts a tile to a o */
 export const coordinate = (tile: number) => 'abcdefgh'[column(tile)] + (8 - row(tile))

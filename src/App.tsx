@@ -5,7 +5,7 @@ import { boardAfterMove, boardAfterMoves } from './lib/board'
 import { last } from './lib/collection'
 import { Color, turnColor, enemyColor, pieceColor } from './lib/color'
 import { count } from './lib/math'
-import { isEnPassant, Move, moveFrom, moveTo } from './lib/move'
+import { isEnPassant, isPawn, Move, moveFrom, moveTo } from './lib/move'
 import {
   row,
   up,
@@ -65,9 +65,7 @@ function App() {
   const moves = hoverTurn === undefined ? previousMoves : previousMoves.slice(0, hoverTurn)
 
   const board = boardAfterMoves(moves)
-  // const hoverBoard =
-  //   hoverTurn !== undefined ? boardAfterMoves(previousMoves.slice(0, hoverTurn)) : undefined
-  const player = turnColor(moves)
+  const player = turnColor(moves.length)
 
   const playerControlMoves = getPlayerControlMoves(board, player)
   const enemyControlMoves = getPlayerControlMoves(board, enemyColor(player))
@@ -85,7 +83,7 @@ function App() {
     <div className="App">
       <div className="info">
         <div>
-          Turn: {previousMoves.length + 1} ({turnColor(previousMoves)})
+          Turn: {previousMoves.length + 1} ({turnColor(previousMoves.length)})
         </div>
         {checked ? (
           noMoves ? (
@@ -240,7 +238,7 @@ const getTileMoves = (
   [
     ...getControlMoves(board, tile).filter(
       (move) =>
-        (move.piece.toLowerCase() !== 'p' ||
+        (!isPawn(move.piece) ||
           // Pawn control moves are only valid if there is an enemy or En Passant
           (previousMoves.length && isEnPassant(move, last(previousMoves))) ||
           isEnemy(move.piece, board[move.to])) &&
@@ -248,16 +246,16 @@ const getTileMoves = (
     ),
     ...getPawnMoves(board, tile),
     ...getCastleMoves(board, tile, previousMoves, enemyControlMoves),
-  ].filter((move) => !resultsInCheck(board, move, previousMoves))
-
-const resultsInCheck = (board: string[], move: Move, previousMoves: Move[]) => {
-  const newMoves = [...previousMoves, move]
-  const newBoard = boardAfterMove(board, move, previousMoves.length, newMoves)
-  return isAttacked(
-    getKing(newBoard, turnColor(previousMoves)),
-    getPlayerControlMoves(newBoard, turnColor(newMoves))
+  ].filter(
+    (move) =>
+      !playerIsChecked(
+        boardAfterMove(board, move, previousMoves.length, [...previousMoves, move]),
+        turnColor(previousMoves.length)
+      )
   )
-}
+
+const playerIsChecked = (board: string[], player: Color) =>
+  isAttacked(getKing(board, player), getPlayerControlMoves(board, enemyColor(player)))
 
 const getPlayerControlMoves = (board: string[], player: Color) =>
   board.flatMap((piece, tile) =>
