@@ -1,11 +1,12 @@
 import clsx from 'clsx'
-import { tileColor, pieceColor } from './lib/color'
-import { coordinate } from './lib/tile'
+import { pieceColor } from './lib/game/piece'
+import { coordinate, tileColor } from './lib/game/tile'
+import { Piece } from './lib/game/types'
 import { svgPieceMap } from './pieceMap'
 
 type Props = {
   tile: number
-  piece: string
+  piece: Piece
   className?: string
   onClick?: () => void
   onMouseOver?: () => void

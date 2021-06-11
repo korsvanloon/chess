@@ -1,3 +1,8 @@
+import { Color } from './types'
+
+export const tileColor = (tile: number): Color =>
+  (tile + Math.floor(tile / 8)) % 2 === 0 ? 'white' : 'black'
+
 /** Returns a number between 0..7, where 0 is the top row. */
 export const row = (tile: number) => Math.floor(tile / 8)
 /** Returns a number between 0..7, where 0 is the most left column. */

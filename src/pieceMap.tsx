@@ -1,3 +1,4 @@
+import { Piece } from './lib/game/types'
 import { ReactComponent as BB } from './svg/bB.svg'
 import { ReactComponent as BK } from './svg/bK.svg'
 import { ReactComponent as BN } from './svg/bN.svg'
@@ -11,7 +12,7 @@ import { ReactComponent as WP } from './svg/wP.svg'
 import { ReactComponent as WQ } from './svg/wQ.svg'
 import { ReactComponent as WR } from './svg/wR.svg'
 
-export const svgPieceMap: { [c: string]: React.ReactNode } = {
+export const svgPieceMap: { [c in Piece]?: React.ReactNode } = {
   R: <BR />,
   N: <BN />,
   B: <BB />,
@@ -26,7 +27,7 @@ export const svgPieceMap: { [c: string]: React.ReactNode } = {
   p: <WP />,
 }
 
-export const unicodePieceMap: { [c: string]: React.ReactNode } = {
+export const unicodePieceMap: { [c in Piece]?: string } = {
   R: '♜',
   N: '♞',
   B: '♝',
