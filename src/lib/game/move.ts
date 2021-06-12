@@ -1,8 +1,9 @@
 import { isEmpty, isPawn, pieceColor } from './piece'
 import { row, column, left, right } from './tile'
 import { Move, Color, Piece } from './types'
+import { ensure } from '../util'
 
-export const moveColor = (move: Move) => pieceColor(move.piece)!
+export const moveColor = (move: Move) => ensure(pieceColor(move.piece))
 
 export const toMove = ({ from, board }: { from: number; board: Piece[] }) => (to: number) => ({
   piece: board[from],
@@ -14,10 +15,6 @@ export const movingTo = (tile: number) => ({ to }: Move) => to === tile
 
 export const movingFrom = (tile: number) => ({ from }: Move) => from === tile
 
-/**
- * Move must be a pawn attack.
- * Previous move must be a double move.
- */
 export const isEnPassant = (move: Move, previousMove: Move) =>
   isPawn(move.piece) &&
   isDoublePawnMove(previousMove) &&
@@ -26,11 +23,11 @@ export const isEnPassant = (move: Move, previousMove: Move) =>
 
 export const isDoublePawnMove = (move: Move) =>
   isPawn(move.piece) &&
-  row(move.from) === (moveColor(move) === 'white' ? 6 : 1) &&
-  row(move.to) === (moveColor(move) === 'white' ? 4 : 3)
+  row(move.from) === { white: 6, black: 1 }[moveColor(move)] &&
+  row(move.to) === { white: 4, black: 3 }[moveColor(move)]
 
 export const isPawnUpgrade = (move: Move) =>
-  isPawn(move.piece) && row(move.to) === (moveColor(move) === 'white' ? 0 : 7)
+  isPawn(move.piece) && row(move.to) === { white: 0, black: 7 }[moveColor(move)]
 
 export const isCastleMove = (move: Move) =>
   move.piece.toLowerCase() === 'k' &&

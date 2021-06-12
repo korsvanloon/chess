@@ -19,3 +19,8 @@ export const isValue = <T>(value: T): value is NonNullable<T> =>
 
 /** Removes all undefined properties */
 export const pruned = <T>(object: T): T => JSON.parse(JSON.stringify(object))
+
+export function ensure<T>(value: T, message = 'Value should not be null') {
+  if (isValue(value)) return value
+  throw message
+}

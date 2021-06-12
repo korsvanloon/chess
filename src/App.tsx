@@ -87,11 +87,9 @@ function App() {
                       ? 'enemy-target'
                       : 'move-target'
                     : possibleMoves[tile].length && 'selectable',
-                  hoverMoves.length &&
-                    hoverMoves.some(movingFrom(tile)) &&
-                    (isSupportMove(board, hoverMoves.find(movingFrom(tile))!, player)
-                      ? 'defender'
-                      : 'attacker')
+                  onlyIf(hoverMoves.find(movingFrom(tile)), (hoverMove) =>
+                    isSupportMove(board, hoverMove, player) ? 'defender' : 'attacker'
+                  )
                 )}
                 onMouseOver={() =>
                   setHoverMoves([
@@ -103,12 +101,12 @@ function App() {
                 onClick={
                   possibleMoves[tile].length
                     ? handleState({ previousMoves, selected: tile })
-                    : selectedMoves.some(movingTo(tile))
-                    ? handleState({
-                        selected: undefined,
-                        previousMoves: [...previousMoves, selectedMoves.find(movingTo(tile))!],
-                      })
-                    : undefined
+                    : onlyIf(selectedMoves.find(movingTo(tile)), (selectedMove) =>
+                        handleState({
+                          selected: undefined,
+                          previousMoves: [...previousMoves, selectedMove],
+                        })
+                      )
                 }
               >
                 {onlyIf(
