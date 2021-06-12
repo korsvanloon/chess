@@ -12,7 +12,7 @@
  * ```
  */
 export const onlyIf = <T, C>(predicate: C | null | undefined | false, callback: (c: C) => T) =>
-  predicate ? callback(predicate!) : undefined
+  predicate ? callback(predicate) : undefined
 
 export const isValue = <T>(value: T): value is NonNullable<T> =>
   value !== null && value !== undefined

@@ -64,12 +64,12 @@ function App() {
           <svg className="control-moves" viewBox="0 0 8 8">
             <g className="player">
               {playerControlMoves.map((m) => (
-                <line {...lineProps(m)} />
+                <line key={m.from + m.to} {...lineProps(m)} />
               ))}
             </g>
             <g className="enemy">
               {enemyControlMoves.map((m) => (
-                <line {...lineProps(m)} />
+                <line key={m.from + m.to} {...lineProps(m)} />
               ))}
             </g>
           </svg>
@@ -82,8 +82,8 @@ function App() {
                 className={clsx(
                   selected === tile
                     ? 'selected'
-                    : selectedMoves.some(movingTo(tile))
-                    ? isEnemy(board[selected!], piece)
+                    : selected && selectedMoves.some(movingTo(tile))
+                    ? isEnemy(board[selected], piece)
                       ? 'enemy-target'
                       : 'move-target'
                     : possibleMoves[tile].length && 'selectable',
@@ -102,7 +102,7 @@ function App() {
                 onMouseLeave={() => setHoverMoves([])}
                 onClick={
                   possibleMoves[tile].length
-                    ? handleState({ previousMoves: previousMoves, selected: tile })
+                    ? handleState({ previousMoves, selected: tile })
                     : selectedMoves.some(movingTo(tile))
                     ? handleState({
                         selected: undefined,
